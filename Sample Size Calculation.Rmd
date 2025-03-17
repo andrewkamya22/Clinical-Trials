@@ -1,0 +1,154 @@
+---
+title: "Clinical Trials Assignment: Sample size for metastatic pancreatic cancer trial"
+author: "Andrew"
+date: "2025-03-17"
+output: word_document
+---
+
+# Introduction
+
+This report presents the sample size calculations for a clinical trial comparing **FOLFIRINOX** vs. **FOLFIRINOX + drug X** in patients with metastatic pancreatic cancer. The objective is to determine the required sample size to test primary hypotheses related to the efficacy of the new treatment regimen.
+
+The calculations use the **gsDesign** package in R, particularly the functions `nSurv` and `nBinomial`. The assumptions and methodology follow standard statistical approaches for clinical trials.
+
+# Study Assumptions
+
+The following assumptions are made:
+- Randomization ratio of 1:1 for Randomization 1  
+- α (the overall significance level) is taken equal to 5% (two-sided, unless a non-inferiority test is needed)  
+- The power of the trial for the differences of interest: at least 80%  
+- The accrual rate: 20 patients/month on average  
+- The number of centers: 50  
+- Budget: potentially available for a trial of up to 400 patients
+- The total duration of the trial: not exceed 2.5 years.  
+- The FOLFORINOX group is expected to fare as in the Conroy et al. (2011) trial, i.e.:  
+    - ORR (objective response rate) = 0.32 
+    - Median progression-free survival (PFS) = 6.4 months  
+    - Median overall survival (OS) = 11.1 months  
+    - Incidence of febrile neutropenia (fever due to decreased levels of white blood cells) = 0.054  
+- The distributions of PFS and OS are exponential for FOLFORINOX and for FOLFORINOX + drug X.  
+- The addition of drug X to FOLFORINOX is expected to improve the efficacy outcomes as follows:  
+    - Absolute increase of 0.17 in ORR  
+    - 30% reduction in PFS hazard rate  
+    - 35% reduction in OS hazard rate  
+
+---
+
+
+# 1. Sample Size Calculation for PFS as Primary Outcome
+
+## a). Number of Required Events
+```{r}
+library(gsDesign)
+nEvents(hr=0.70, alpha=0.05, sided = 2, beta=0.2, ratio = 1)  
+```
+  
+## b). Trial Duration for 300 Patients
+```{r}
+nSurv(lambdaC=-log(.5)/6.4, hr=0.7, sided=2, alpha=0.05, beta=0.2, gamma=20,  
+R=15, ratio=1)  
+```
+  
+## c). Number of Patients Required for 2-Year Trial Duration
+```{r}
+nSurv(lambdaC=-log(.5)/6.4, hr=0.7, sided=2, alpha=0.05, beta=0.2, gamma=20,  
+R=16.8, ratio=1)  
+```
+
+--- 
+
+# 2. Sample Size Calculation for OS as Primary Outcome
+
+## a. Number of Required Events
+```{r}
+nEvents(hr=0.65, alpha=0.05, sided = 2, beta=0.2, ratio = 1)  
+# [1] 169.1807  
+```
+  
+## b. Trial Duration for 300 Patients
+```{r}
+nSurv(lambdaC=-log(.5)/11.1, hr=0.65, sided=2, alpha=0.05, beta=0.2,  
+gamma=20, R=15, ratio=1)  
+```
+
+
+---
+
+# 3. Choosing the Best Primary Outcome
+
+Based on the results:
+
+OS would be the best primary outcome to choose since it is most relevant and requires about the same number of patients (300) for a trial duration of about 2 years. The assumed HR for OS (HR=0.65) is however suspiciously larger than the assumed HR for PFS (HR=0.70), so it might be a good idea to question the assumed HR for OS, or to choose another outcome as the primary endpoint of the trial.  
+
+
+---
+
+# 4. Powering the Trial for all three endpoints of ORR, PFS, and OS. 
+
+A Bonferroni correction is applied to control the Type I error rate at 0.05 (two-sided).\
+The sample size is increased to 400 patients, and the trial duration is extended to 27 months.
+
+### Bonferroni Correction:
+α1 = 0.01 for ORR, α2 = 0.023 for PFS, and α3 = 0.017 for OS, with α= α1 + α2 + α3 = 0.05.  
+
+## a). ORR Sample Size Calculation
+```{r}
+nBinomial(p1 = 0.32, p2 = 0.49, alpha = 0.01, sided = 2, beta = 0.2, ratio = 1)
+```
+
+## b). PFS Sample Size Calculation
+
+```{r}
+nSurv(lambdaC = -log(0.5)/6.4, hr = 0.7, sided = 2, alpha = 0.023, beta = 0.2, 
+      gamma = 20, R = 20, ratio = 1)
+```
+
+## c). OS Sample Size Calculation
+
+```{r}
+nSurv(lambdaC = -log(0.5)/11.1, hr = 0.65, sided = 2, alpha = 0.017, beta = 0.2, 
+      gamma = 20, R = 20, ratio = 1)
+```
+
+---
+
+
+# 5. Evaluating Febrile Neutropenia Risk
+
+Drug X may increase myelotoxicity, raising the febrile neutropenia incidence from 0.054 to 0.108.\
+A non-inferiority (NI) test is conducted to assess whether this exceeds the tolerable threshold (0.162).
+
+### Null Hypothesis:
+
+$$
+H_0: PFN(T) - PFN(C) > 0.108
+$$
+
+### Alternative Hypothesis:
+
+$$
+H_A: PFN(T) - PFN(C) < 0.108
+$$
+
+```{r}
+nBinomial(p1 = 0.054, p2 = 0.108, delta0 = 0.054 - 3 * 0.054, alpha = 0.05, 
+          n = 400, sided = 1, scale = "Difference", ratio = 1, outtype = 2)
+```
+
+
+### Power Calculation:
+
+Using the formula:
+
+\[n = \frac{(Z_{1-\beta} + Z_{1-\alpha})^2 \cdot (p_E(1 - p_E) + p_C(1 - p_C))}{(\Delta + \delta)^2}\]
+
+\[n = \frac{(Z_{1-\beta} + 1.645)^2 \cdot (0.892*0.108 + 0.946*0.054)}{(-0.054+0.108)^2}\]
+
+\[n = \frac{200*(-0.054+0.108)^2}{((0.892*0.108+0.946*0.054)^(\frac{1}{2})) – 1.645} = 0.344 = Z_{1-\beta}\]
+
+\[1-\beta= \phi(0.344) = 0.63\]
+
+
+The power is approximately 63%, which is below the desired 80% threshold.\
+Further adjustments may be needed to ensure sufficient power for this endpoint.
+
